@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EOFProtektor", "EOFProtektor.csproj", "{0148362B-1462-0571-7A1A-CFD977C4BEE3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0148362B-1462-0571-7A1A-CFD977C4BEE3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0148362B-1462-0571-7A1A-CFD977C4BEE3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0148362B-1462-0571-7A1A-CFD977C4BEE3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0148362B-1462-0571-7A1A-CFD977C4BEE3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4768FA37-25B9-418F-86D9-7C3BB9E7AADA}
+	EndGlobalSection
+EndGlobal
