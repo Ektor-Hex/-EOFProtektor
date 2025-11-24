@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Windows.Forms;
 using dnlib.DotNet;
 using dnlib.DotNet.Emit;
 using EOFProtektor.Core;
@@ -12,7 +13,33 @@ namespace EOFProtektor
 {
     class Program_Protected
     {
+        [STAThread]
         static void Main(string[] args)
+        {
+            // Si hay argumentos de línea de comandos, usar modo consola
+            if (args.Length > 0)
+            {
+                RunConsoleMode(args);
+                return;
+            }
+
+            // Sin argumentos, usar modo GUI
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            
+            try
+            {
+                using var configForm = new ProtectionConfigForm();
+                Application.Run(configForm);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error crítico: {ex.Message}\n\nDetalles:\n{ex.StackTrace}",
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        static void RunConsoleMode(string[] args)
         {
             Console.WriteLine("=== EOF PROTEKTOR v2.0 - ARQUITECTURA MODULAR ===");
             Console.WriteLine("Protector de ejecutables .NET con ofuscación avanzada");
@@ -21,6 +48,15 @@ namespace EOFProtektor
             try
             {
                 string filePath = GetFilePath(args);
+                
+                if (!ValidateFile(filePath))
+                {
+                    Console.WriteLine("Error: Archivo inválido o inaccesible.");
+                    Console.WriteLine("Presiona cualquier tecla para salir...");
+                    Console.ReadKey();
+                    return;
+                }
+                
                 int protectionLevel = GetProtectionLevel();
                 bool useCustomPatch = GetCustomPatch();
 
@@ -35,11 +71,67 @@ namespace EOFProtektor
                 Console.WriteLine("✓ Protección aplicada exitosamente!");
                 Console.WriteLine("El archivo protegido ha sido guardado.");
             }
+            catch (FileNotFoundException ex)
+            {
+                Console.WriteLine($"Error: Archivo no encontrado - {ex.Message}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.WriteLine($"Error: Acceso denegado - {ex.Message}");
+            }
+            catch (IOException ex)
+            {
+                Console.WriteLine($"Error de E/S: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            }
+            finally
+            {
                 Console.WriteLine("Presiona cualquier tecla para salir...");
                 Console.ReadKey();
+            }
+        }
+        
+        static bool ValidateFile(string filePath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(filePath))
+                    return false;
+                
+                if (!File.Exists(filePath))
+                {
+                    Console.WriteLine($"El archivo '{filePath}' no existe.");
+                    return false;
+                }
+                
+                var fileInfo = new FileInfo(filePath);
+                if (fileInfo.Length == 0)
+                {
+                    Console.WriteLine("El archivo está vacío.");
+                    return false;
+                }
+                
+                // Verificar extensión
+                var ext = Path.GetExtension(filePath).ToLower();
+                if (ext != ".exe" && ext != ".dll")
+                {
+                    Console.WriteLine($"Advertencia: El archivo no tiene extensión .exe o .dll ({ext})");
+                    Console.Write("¿Continuar de todos modos? (s/n): ");
+                    var response = Console.ReadLine()?.ToLower();
+                    if (response != "s" && response != "si" && response != "y" && response != "yes")
+                        return false;
+                }
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al validar el archivo: {ex.Message}");
+                return false;
             }
         }
 
@@ -87,31 +179,77 @@ namespace EOFProtektor
 
         static void ApplyAdvancedProtection(string filePath, int protectionLevel, bool useCustomPatch)
         {
-            Console.WriteLine("Iniciando proceso de protección...");
-
-            // Crear datos de protección
-            var data = new ProtectionData();
-            
-            // Cargar el módulo
-            var mod = ModuleDefMD.Load(filePath);
-            Console.WriteLine($"✓ Módulo cargado: {mod.Name}");
-
-            // Aplicar protecciones según el nivel
-            ApplyProtectionByLevel(mod, data, protectionLevel);
-
-            // Aplicar patch personalizado si se solicita
-            if (useCustomPatch)
+            try
             {
-                ApplyCustomPatchLogic(filePath, data);
+                Console.WriteLine("Iniciando proceso de protección...");
+
+                // Crear datos de protección
+                var data = new ProtectionData();
+                Console.WriteLine($"✓ Datos de protección generados (Seed: {data.Seed})");
+                
+                // Cargar el módulo
+                ModuleDefMD mod;
+                try
+                {
+                    mod = ModuleDefMD.Load(filePath);
+                    Console.WriteLine($"✓ Módulo cargado: {mod.Name}");
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Error al cargar el módulo .NET: {ex.Message}", ex);
+                }
+
+                // Aplicar protecciones según el nivel
+                try
+                {
+                    ApplyProtectionByLevel(mod, data, protectionLevel);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Advertencia: Error al aplicar algunas protecciones: {ex.Message}");
+                }
+
+                // Guardar el módulo protegido primero
+                string outputPath = GetOutputPath(filePath);
+                
+                try
+                {
+                    mod.Write(outputPath);
+                    Console.WriteLine($"✓ Archivo protegido guardado: {outputPath}");
+                }
+                catch (Exception ex)
+                {
+                    throw new IOException($"Error al guardar el archivo protegido: {ex.Message}", ex);
+                }
+                
+                // Aplicar patch personalizado si se solicita
+                if (useCustomPatch)
+                {
+                    try
+                    {
+                        ApplyCustomPatchLogic(outputPath, data);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Advertencia: Error al aplicar patch personalizado: {ex.Message}");
+                    }
+                }
+
+                // Aplicar protección multicapa
+                try
+                {
+                    IntegrityProtection.ApplyMultiLayerProtection(outputPath, data);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Advertencia: Error al aplicar protección multicapa: {ex.Message}");
+                }
             }
-
-            // Aplicar protección multicapa
-            IntegrityProtection.ApplyMultiLayerProtection(filePath, data);
-
-            // Guardar el módulo protegido
-            string outputPath = GetOutputPath(filePath);
-            mod.Write(outputPath);
-            Console.WriteLine($"✓ Archivo protegido guardado: {outputPath}");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error crítico en ApplyAdvancedProtection: {ex.Message}");
+                throw;
+            }
         }
 
         static void ApplyProtectionByLevel(ModuleDefMD mod, ProtectionData data, int level)
@@ -371,6 +509,100 @@ namespace EOFProtektor
             IntegrityProtection.ApplyCustomPatch(filePath, patchData, data);
         }
 
+        static void ApplyAdvancedProtectionFromGUI(string filePath, int protectionLevel, 
+            byte[]? customPatchData, bool enableControlFlow, bool virtualizeAll)
+        {
+            try
+            {
+                Console.WriteLine("Iniciando proceso de protección...");
+
+                // Crear datos de protección
+                var data = new ProtectionData();
+                Console.WriteLine($"✓ Datos de protección generados (Seed: {data.Seed})");
+                
+                // Cargar el módulo
+                ModuleDefMD mod;
+                try
+                {
+                    mod = ModuleDefMD.Load(filePath);
+                    Console.WriteLine($"✓ Módulo cargado: {mod.Name}");
+                }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException($"Error al cargar el módulo .NET: {ex.Message}", ex);
+                }
+
+                // Aplicar protecciones según el nivel
+                try
+                {
+                    ApplyProtectionByLevel(mod, data, protectionLevel);
+                    
+                    // Aplicar control flow si está habilitado
+                    if (enableControlFlow && protectionLevel >= 2)
+                    {
+                        Console.WriteLine("Aplicando Control Flow Obfuscation adicional...");
+                        ControlFlowObfuscator.ApplyAdvancedControlFlowObfuscation(mod, data);
+                    }
+                    
+                    // Aplicar virtualización si está habilitada
+                    if (virtualizeAll && protectionLevel >= 3)
+                    {
+                        Console.WriteLine("Aplicando virtualización completa de clases...");
+                        ClassVirtualizationObfuscator.ApplyClassVirtualization(mod, protectionLevel, true);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Advertencia: Error al aplicar algunas protecciones: {ex.Message}");
+                }
+
+                // Guardar el módulo protegido primero
+                string outputPath = GetOutputPath(filePath);
+                
+                try
+                {
+                    mod.Write(outputPath);
+                    Console.WriteLine($"✓ Archivo protegido guardado: {outputPath}");
+                }
+                catch (Exception ex)
+                {
+                    throw new IOException($"Error al guardar el archivo protegido: {ex.Message}", ex);
+                }
+                
+                // Aplicar patch personalizado si se proporcionó
+                if (customPatchData != null && customPatchData.Length > 0)
+                {
+                    try
+                    {
+                        Console.WriteLine("Aplicando patch personalizado...");
+                        IntegrityProtection.ApplyCustomPatch(outputPath, customPatchData, data);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Advertencia: Error al aplicar patch personalizado: {ex.Message}");
+                    }
+                }
+
+                // Aplicar protección multicapa
+                try
+                {
+                    IntegrityProtection.ApplyMultiLayerProtection(outputPath, data);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Advertencia: Error al aplicar protección multicapa: {ex.Message}");
+                }
+                
+                Console.WriteLine();
+                Console.WriteLine("✓ Protección aplicada exitosamente!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error crítico: {ex.Message}");
+                throw;
+            }
+        }
+
         static string GetOutputPath(string originalPath)
         {
             string directory = Path.GetDirectoryName(originalPath) ?? "";
@@ -396,6 +628,49 @@ namespace EOFProtektor
             }
             
             return bytes;
+        }
+    }
+
+    // Clase para redirigir Console.WriteLine a un TextBox
+    public class TextBoxWriter : System.IO.TextWriter
+    {
+        private TextBox textBox;
+        
+        public TextBoxWriter(TextBox textBox)
+        {
+            this.textBox = textBox;
+        }
+
+        public override void Write(char value)
+        {
+            if (textBox.InvokeRequired)
+            {
+                textBox.Invoke(new Action(() => textBox.AppendText(value.ToString())));
+            }
+            else
+            {
+                textBox.AppendText(value.ToString());
+            }
+        }
+
+        public override void Write(string? value)
+        {
+            if (value != null)
+            {
+                if (textBox.InvokeRequired)
+                {
+                    textBox.Invoke(new Action(() => textBox.AppendText(value)));
+                }
+                else
+                {
+                    textBox.AppendText(value);
+                }
+            }
+        }
+
+        public override System.Text.Encoding Encoding
+        {
+            get { return System.Text.Encoding.UTF8; }
         }
     }
 }

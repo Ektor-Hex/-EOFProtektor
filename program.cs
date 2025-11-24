@@ -14,7 +14,7 @@ using MethodAttributes = dnlib.DotNet.MethodAttributes;
 using TypeAttributes = dnlib.DotNet.TypeAttributes;
 using EOFProtektor.Obfuscation;
 
-namespace AntiTamperEOF_Dnlib
+namespace EOFProtektor
 {
     internal static class Program
     {

@@ -10,6 +10,20 @@ namespace EOFProtektor.Protection
     {
         public static void ApplyCustomPatch(string filePath, byte[] patchData, ProtectionData data)
         {
+            if (string.IsNullOrEmpty(filePath))
+                throw new ArgumentNullException(nameof(filePath), "La ruta del archivo no puede ser nula o vacía");
+            
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"El archivo no existe: {filePath}");
+            
+            if (patchData == null || patchData.Length == 0)
+                throw new ArgumentException("Los datos del patch no pueden ser nulos o vacíos", nameof(patchData));
+            
+            ApplyCustomPatchInternal(filePath, patchData, data);
+        }
+        
+        private static void ApplyCustomPatchInternal(string filePath, byte[] patchData, ProtectionData data)
+        {
             Console.WriteLine("Aplicando patch personalizado...");
             
             using (var fs = new FileStream(filePath, FileMode.Append, FileAccess.Write))
@@ -38,6 +52,15 @@ namespace EOFProtektor.Protection
         
         public static void ApplyMultiLayerProtection(string filePath, ProtectionData data)
         {
+            if (string.IsNullOrEmpty(filePath))
+                throw new ArgumentNullException(nameof(filePath), "La ruta del archivo no puede ser nula o vacía");
+            
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"El archivo no existe: {filePath}");
+            
+            if (data == null)
+                throw new ArgumentNullException(nameof(data), "Los datos de protección no pueden ser nulos");
+            
             Console.WriteLine("Aplicando protección multicapa...");
             
             var fileBytes = File.ReadAllBytes(filePath);
